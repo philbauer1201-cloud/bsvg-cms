@@ -1,0 +1,17 @@
+node_modules
+.git
+.env
+.env.*
+.dev.vars*
+.sites-runtime
+.wrangler
+.vinext
+.next
+work
+outputs
+data
+uploads
+backups
+dist
+standalone-dist
+*.log

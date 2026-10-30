@@ -1,0 +1,13 @@
+services:
+  cms:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3100:3100"
+    environment:
+      CMS_ADMIN_TOKEN: ${CMS_ADMIN_TOKEN:?Administrationsschluessel setzen}
+      CMS_ORIGIN: ${CMS_ORIGIN:?Externe HTTPS-Adresse setzen}
+    volumes:
+      - cms-data:/app/data
+volumes:
+  cms-data:
