@@ -1,0 +1,44 @@
+# Lokale Arbeitsdateien und Chat-Ausgaben
+/work/
+/outputs/
+
+# Abhängigkeiten und erzeugte Dateien
+node_modules/
+/dist/
+/build/
+/.next/
+/.vinext/
+/.output/
+/.wrangler/
+/coverage/
+*.tsbuildinfo
+*.log
+
+# Zugangsdaten: nur leere Konfigurationsvorlagen versionieren
+.env
+.env.*
+!.env.example
+!.env.*.example
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+*.key
+*.pem
+*.pfx
+*.p12
+
+# Laufzeitdaten und Sicherungen
+/data/
+/uploads/
+/backups/
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+
+# Betriebssystemdateien
+.DS_Store
+Thumbs.db
+Desktop.ini
