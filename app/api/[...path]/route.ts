@@ -6,7 +6,7 @@ async function dispatch(request:Request) {
   const user = await getChatGPTUser();
   if (!user) return Response.json({ error:"Bitte zuerst anmelden." },{ status:401 });
   // Owner-private Werkstatt. Vor zusätzlicher Freigabe sind CMS-Rollen erforderlich.
-  return handleApi(request,sitesStore(),user.userId);
+  return handleApi(request,sitesStore(),{kind:"workshop",subject:user.userId});
 }
 export const GET = dispatch;
 export const POST = dispatch;

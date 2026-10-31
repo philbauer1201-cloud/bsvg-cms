@@ -61,7 +61,7 @@ export async function startServer(options = {}) {
       }
       if (url.pathname.startsWith('/api/')) {
         const webRequest = new Request(url,{ method:req.method,headers:req.headers,...(['GET','HEAD'].includes(req.method) ? {} : { body }) });
-        const result = await handleApi(webRequest,store,'standalone-admin');
+        const result = await handleApi(webRequest,store,{kind:'workshop',subject:'standalone-admin'});
         res.writeHead(result.status,Object.fromEntries(result.headers)); return res.end(Buffer.from(await result.arrayBuffer()));
       }
       if (!['GET','HEAD'].includes(req.method)) { res.writeHead(405); return res.end(); }

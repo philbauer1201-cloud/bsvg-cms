@@ -19,25 +19,25 @@ test('Echte SQLite-Installationen: Beitrag und Binärdatei exportieren, auf leer
   let source,target;
   try {
     source=await nodeStore(sourceDir); target=await nodeStore(targetDir);
-    assert.equal((await handleApi(request('/api/posts','POST',post),source,'tester')).status,201);
+    assert.equal((await handleApi(request('/api/posts','POST',post),source,{kind:'workshop',subject:'tester'})).status,201);
     const file='Eine Datei mit Umlauten: Grüße aus Gmunden.\n';
-    assert.equal((await handleApi(request('/api/files','POST',file,{ 'content-type':'text/plain','x-file-name':encodeURIComponent('Prüfung.txt') }),source,'tester')).status,201);
-    const backup=await (await handleApi(request('/api/backup'),source,'tester')).json();
+    assert.equal((await handleApi(request('/api/files','POST',file,{ 'content-type':'text/plain','x-file-name':encodeURIComponent('Prüfung.txt') }),source,{kind:'workshop',subject:'tester'})).status,201);
+    const backup=await (await handleApi(request('/api/backup'),source,{kind:'workshop',subject:'tester'})).json();
     assert.equal(backup.files.length,1); assert.equal(backup.posts.length,1);
-    assert.equal((await handleApi(request('/api/restore','POST',backup),target,'tester')).status,200);
-    const exported=await (await handleApi(request('/api/backup'),target,'tester')).json();
+    assert.equal((await handleApi(request('/api/restore','POST',backup),target,{kind:'workshop',subject:'tester'})).status,200);
+    const exported=await (await handleApi(request('/api/backup'),target,{kind:'workshop',subject:'tester'})).json();
     assert.deepEqual(exported.posts,backup.posts); assert.deepEqual(exported.files,backup.files);
     target.close(); target=await nodeStore(targetDir);
-    const state=await (await handleApi(request('/api/state'),target,'tester')).json();
+    const state=await (await handleApi(request('/api/state'),target,{kind:'workshop',subject:'tester'})).json();
     assert.equal(state.posts[0].body,post.body);
-    const downloaded=await handleApi(request(`/api/files/${state.files[0].id}`),target,'tester');
+    const downloaded=await handleApi(request(`/api/files/${state.files[0].id}`),target,{kind:'workshop',subject:'tester'});
     assert.equal(await downloaded.text(),file);
     assert.equal(downloaded.headers.get('x-content-type-options'),'nosniff');
     const before=await target.read(), broken=structuredClone(backup); broken.files[0].sha256='f'.repeat(64);
-    assert.equal((await handleApi(request('/api/restore','POST',broken),target,'tester')).status,400);
+    assert.equal((await handleApi(request('/api/restore','POST',broken),target,{kind:'workshop',subject:'tester'})).status,400);
     assert.deepEqual(await target.read(),before,'Beschädigter Import darf aktuelle Daten nicht verändern.');
-    const wrongVersion=structuredClone(backup); wrongVersion.version=2;
-    assert.equal((await handleApi(request('/api/restore','POST',wrongVersion),target,'tester')).status,400);
+    const wrongVersion=structuredClone(backup); wrongVersion.version=99;
+    assert.equal((await handleApi(request('/api/restore','POST',wrongVersion),target,{kind:'workshop',subject:'tester'})).status,400);
     assert.equal(await target.write(before.revision-1,before.data),false,'Veraltete Schreibzugriffe werden abgewiesen.');
   } finally { source?.close(); target?.close(); await rm(sourceDir,{recursive:true,force:true}); await rm(targetDir,{recursive:true,force:true}); }
 });
@@ -47,11 +47,11 @@ test('API verweigert fehlende Identität, fremde Origins und ungültige Beiträg
   try {
     assert.equal((await handleApi(request('/api/state'),store,'')).status,401);
     const foreign=new Request(origin+'/api/posts',{method:'POST',headers:{origin:'https://evil.test'},body:JSON.stringify(post)});
-    assert.equal((await handleApi(foreign,store,'tester')).status,403);
-    assert.equal((await handleApi(request('/api/posts','POST',{...post,site:'unknown'}),store,'tester')).status,400);
-    assert.equal((await handleApi(request('/api/files','POST','<script/>',{'content-type':'image/svg+xml'}),store,'tester')).status,400);
-    assert.equal((await handleApi(request('/api/files','POST','fake image',{'content-type':'image/png'}),store,'tester')).status,400);
-    assert.equal((await handleApi(request('/api/files','POST','x'.repeat(2*1024*1024+1),{'content-type':'text/plain'}),store,'tester')).status,400);
+    assert.equal((await handleApi(foreign,store,{kind:'workshop',subject:'tester'})).status,403);
+    assert.equal((await handleApi(request('/api/posts','POST',{...post,site:'unknown'}),store,{kind:'workshop',subject:'tester'})).status,400);
+    assert.equal((await handleApi(request('/api/files','POST','<script/>',{'content-type':'image/svg+xml'}),store,{kind:'workshop',subject:'tester'})).status,400);
+    assert.equal((await handleApi(request('/api/files','POST','fake image',{'content-type':'image/png'}),store,{kind:'workshop',subject:'tester'})).status,400);
+    assert.equal((await handleApi(request('/api/files','POST','x'.repeat(2*1024*1024+1),{'content-type':'text/plain'}),store,{kind:'workshop',subject:'tester'})).status,400);
     assert.equal(await store.read(),null);
   } finally { store.close(); await rm(dir,{recursive:true,force:true}); }
 });

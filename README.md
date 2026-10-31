@@ -1,9 +1,11 @@
-# BSVG CMS · Werkstatt 0.1
+# BSVG CMS · Werkstatt 0.2
 
 Eine Schule, zwei Standorte: Vöcklabruck und Gmunden. Privates, ausführbares CMS-Grundgerüst im BSVG-Design. Noch kein freigegebenes Produktivsystem.
 
 ## Was funktioniert
 
+- Benutzerkonten mit Rollen vorbereiten, Lehrgangsklassen verwalten und Mitgliedschaften zuordnen.
+- Berechtigungen serverseitig prüfen und hypothetische Zugriffe ohne Rechteänderung nachvollziehen.
 - Beiträge anlegen, bearbeiten und löschen; Standort, Zielbereich und Freigabestatus festlegen.
 - Nach Titel/Kurztext, Standort und Status filtern.
 - Interne Vorschau freigegebener Website-Beiträge. Keine automatische öffentliche Schulwebsite.
@@ -44,7 +46,7 @@ Hosted-Veröffentlichung ausschließlich über den Sites-Workflow. Die Projektid
 3. Dort **Sicherung auswählen** verwenden und das Ersetzen bestätigen.
 4. Beiträge, Standorte und Dateien prüfen; erneut exportieren und vergleichen.
 
-Format: `bsvg-cms`, Version `1`. Dateien liegen als Base64 samt SHA-256-Prüfsumme im JSON. Ungültige Versionen, doppelte Kennungen und beschädigte Dateien werden abgewiesen, bevor der aktuelle Datenstand ersetzt wird. Konkurrierende Schreibzugriffe werden über Revisionen erkannt. Nach Wiederherstellung beginnt der Aktivitätsverlauf mit dem Wiederherstellungsereignis neu; der alte Verlauf ist im Export enthalten, wird aber nicht als vertrauenswürdiges Auditlog eingelesen.
+Format: `bsvg-cms`, Version `2` (Inhaltsimporte aus Version `1` bleiben möglich). Format 2 enthält zusätzlich Benutzer, Klassen und Mitgliedschaften; zuvor aktive Konten werden bei Wiederherstellung auf ausstehende Aktivierung gesetzt. Format 1 lässt ein bestehendes Benutzerverzeichnis unberührt. Dateien liegen als Base64 samt SHA-256-Prüfsumme im JSON. Ungültige Versionen, doppelte Kennungen und beschädigte Dateien werden abgewiesen, bevor der aktuelle Datenstand ersetzt wird. Konkurrierende Schreibzugriffe werden über Revisionen erkannt. Nach Wiederherstellung beginnt der Aktivitätsverlauf mit dem Wiederherstellungsereignis neu; der alte Verlauf ist im Export enthalten, wird aber nicht als vertrauenswürdiges Auditlog eingelesen.
 
 Die Sicherung ist unverschlüsselt und kann interne Inhalte enthalten. Geschützt aufbewahren und transportieren. Sie enthält keine Zugangsschlüssel oder laufenden Sitzungen. Source-ZIP, Datensicherung und Geheimnisse sind getrennte Pakete.
 
@@ -66,7 +68,7 @@ Der Container ist nur auf `127.0.0.1:3100` des Docker-Hosts veröffentlicht. Ein
 
 ## Noch nicht umgesetzt
 
-Eigene Lehrkräftekonten, Einladungsversand, Passwortwiederherstellung, Mehrfaktor-Anmeldung, Rollenfreigaben, öffentliche Schulwebsite, fertig ausgegebenes Intranet, vollständiger produktiver Serverbetrieb und automatische Backup-Aufbewahrung.
+Verifizierte Aktivierung der vorbereiteten CMS-Konten und eigene Passwortanmeldung, Einladungsversand, Passwortwiederherstellung, Mehrfaktor-Anmeldung, Rollenfreigaben, öffentliche Schulwebsite, fertig ausgegebenes Intranet, vollständiger produktiver Serverbetrieb und automatische Backup-Aufbewahrung.
 
 Das bereitgestellte Original-SVG liegt unverändert unter `public/bsvg-logo.svg`. Es enthält falsch kodierte Textglyphen. Die Oberfläche zeigt deshalb vorläufig den Schulnamen als Text. Für das endgültige Logo wird ein korrigierter SVG-Export mit Schrift als Pfaden benötigt. Die CI-Schrift Poppins liegt mit OFL-Lizenz lokal bei.
 
@@ -78,4 +80,10 @@ npx.cmd tsc --noEmit
 npm.cmd run build:standalone
 ```
 
-Der Testlauf prüft echte SQLite-Installationen, Neustart/Persistenz, vollständigen Export/Import inklusive Datei, Prüfsummenfehler, ungültige Beiträge, Konflikterkennung und Zugriffsschutz des separaten Node-Testservers. Sites-Build, lokale D1/R2-Übertragung und Browserprüfung werden zusätzlich geprüft; siehe `docs/pruefbericht-0.1.md`.
+Der Testlauf prüft echte SQLite-Installationen, Neustart/Persistenz, vollständigen Export/Import inklusive Datei, Prüfsummenfehler, ungültige Beiträge, Konflikterkennung und Zugriffsschutz des separaten Node-Testservers. Sites-Build, lokale D1/R2-Übertragung und Browserprüfung werden zusätzlich geprüft; siehe `docs/pruefbericht-0.1.md` für die ursprüngliche Grundlage und `docs/benutzer-klassen-0.2.md` für den aktuellen Ausbau.
+
+## Konten und Lehrgangsklassen
+
+Unter **Benutzer** Konten vorbereiten und Rollen zuordnen. Unter **Klassen & Lehrgänge** Standort und Zeitraum anlegen und die Konten zuordnen. Eine Mitgliedschaft aktiviert kein Konto. Mit **Berechtigungen nachvollziehen** kann die Wirkung nach einer hypothetischen Aktivierung an einem gewählten Datum geprüft werden, ohne Daten zu ändern.
+
+Konkrete Personen- und Klassendaten liegen ausschließlich im privaten Laufzeitspeicher und gehören nicht in das Quellcode-ZIP. Die eigene Anmeldung und der Mailversand folgen im nächsten Ausbau.
