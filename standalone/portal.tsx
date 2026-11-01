@@ -10,7 +10,7 @@ async function call(path:string,body:unknown,headers:Record<string,string>={}) {
   const response=await fetch(path,{method:"POST",headers:{"content-type":"application/json",...headers},body:JSON.stringify(body)});
   const result=await response.json() as {error?:string;destination?:string;ok?:boolean};if(!response.ok)throw new Error(result.error??"Vorgang fehlgeschlagen.");return result;
 }
-function Brand(){return <a href="/" className="school-brand"><strong>BSVG</strong><span>Berufsschule<br/>Vöcklabruck-Gmunden</span></a>;}
+function Brand(){return <a href="/" className="school-brand" aria-label="BSVG Schulwebsite"><img className="school-logo" src="/bsvg-logo.svg" alt="Berufsschule Vöcklabruck-Gmunden" width={340} height={248}/></a>;}
 function Header({session}:{session?:Session|null}) {
   async function logout(){try{await call("/auth/logout",{});window.location.assign("/");}catch{window.location.assign("/anmelden");}}
   return <header className="portal-header"><Brand/><nav aria-label="Bereiche"><a href="/">Schulwebsite</a>{session?.authenticated?<>{session.capabilities.staffRead&&<a href="/lehrkraefte">Mein Intranet</a>}{session.capabilities.roles.includes("student")&&<a href="/schueler">Mein Schülerbereich</a>}{(session.capabilities.directoryManage||session.capabilities.contentManage)&&<a href={session.workshop?"/werkstatt":"/verwaltung"}>Verwaltung</a>}<button onClick={logout} className="text-button"><LogOut size={15}/>Abmelden</button></>:<><a href="/anmelden?bereich=lehrkraefte">Lehrkräfte-Login</a><a className="button primary" href="/anmelden?bereich=schueler">Schüler-Login <ArrowRight size={15}/></a></>}</nav></header>;

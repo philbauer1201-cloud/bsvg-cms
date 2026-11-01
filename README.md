@@ -72,7 +72,7 @@ Der Container ist nur auf `127.0.0.1:3100` des Docker-Hosts veröffentlicht. Ein
 
 Automatischer E-Mail-Versand und Nachweis des E-Mail-Besitzes, Mehrfaktor-Anmeldung, vollständige öffentliche Schulwebsite, vollständige Intranetstruktur, Klassenkommunikation, Seiteneditor und Freigabeprozess, produktiver Serverbetrieb und automatische Backup-Aufbewahrung. Aktivierungs- und Rücksetzlinks werden derzeit nach Identitätsprüfung persönlich durch die Administration ausgegeben. Es gibt keine offene Selbstregistrierung.
 
-Das bereitgestellte Original-SVG liegt unverändert unter `public/bsvg-logo.svg`. Es enthält falsch kodierte Textglyphen. Die Oberfläche zeigt deshalb vorläufig den Schulnamen als Text. Für das endgültige Logo wird ein korrigierter SVG-Export mit Schrift als Pfaden benötigt. Die CI-Schrift Poppins liegt mit OFL-Lizenz lokal bei.
+Das neue Schullogo liegt unverändert unter `public/bsvg-logo.svg`, das zugehörige Icon unter `public/favicon.svg`. Beide SVG-Dateien verwenden Pfade ohne externe Schriften und werden auf Sites und in der unabhängigen Serverversion eingebunden. Die CI-Schrift Poppins liegt mit OFL-Lizenz lokal bei.
 
 ## Prüfungen
 

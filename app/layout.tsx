@@ -5,8 +5,8 @@ export const metadata: Metadata = {
   title: "BSVG · Verwaltung",
   description: "Inhalte für eine Schule. Zwei Standorte. Ein gemeinsames CMS.",
   icons: {
-    icon: "/bsvg-logo.svg",
-    shortcut: "/bsvg-logo.svg",
+    icon: { url: "/favicon.svg?v=2", type: "image/svg+xml" },
+    shortcut: "/favicon.svg?v=2",
   },
 };
 
