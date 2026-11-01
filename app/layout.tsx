@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "BSVG · CMS Werkstatt",
+  title: "BSVG · Verwaltung",
   description: "Inhalte für eine Schule. Zwei Standorte. Ein gemeinsames CMS.",
   icons: {
     icon: "/bsvg-logo.svg",

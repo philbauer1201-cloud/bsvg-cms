@@ -10,6 +10,7 @@ export async function nodeStore(directory) {
   db.exec(SCHEMA_SQL);
   function filePath(key) { if (!/^[a-f0-9-]{36}$/.test(key)) throw new Error('Invalid file key'); return path.join(directory,'files',key); }
   return {
+    database:db,
     async read() { const row = db.prepare('SELECT revision,payload FROM cms_state WHERE id = ?').get('school'); return row ? { revision:Number(row.revision),data:JSON.parse(row.payload) } : null; },
     async write(revision,data) {
       const result = revision === 0

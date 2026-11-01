@@ -1,9 +1,9 @@
 {
   "name": "bsvg-cms",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "engines": {
-    "node": ">=22.13.0"
+    "node": ">=24.0.0"
   },
   "scripts": {
     "install:ci": "node scripts/install-ci.mjs",
@@ -15,7 +15,8 @@
     "build:standalone": "vite build --config vite.standalone.config.ts",
     "preview:standalone": "node standalone/server.mjs --local-preview",
     "start:standalone": "node standalone/server.mjs",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "preview:accounts": "node standalone/server.mjs --local-accounts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

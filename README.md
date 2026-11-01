@@ -1,9 +1,11 @@
-# BSVG CMS · Werkstatt 0.2
+# BSVG CMS · Werkstatt 0.3
 
 Eine Schule, zwei Standorte: Vöcklabruck und Gmunden. Privates, ausführbares CMS-Grundgerüst im BSVG-Design. Noch kein freigegebenes Produktivsystem.
 
 ## Was funktioniert
 
+- Eigene Passwortanmeldung, Aktivierung, Abmeldung und Wiederherstellung über freigegebene Einmallinks in der unabhängigen Serverversion.
+- Getrennte Lehrkräfte- und Schüleransichten mit serverseitiger Rechteprüfung.
 - Benutzerkonten mit Rollen vorbereiten, Lehrgangsklassen verwalten und Mitgliedschaften zuordnen.
 - Berechtigungen serverseitig prüfen und hypothetische Zugriffe ohne Rechteänderung nachvollziehen.
 - Beiträge anlegen, bearbeiten und löschen; Standort, Zielbereich und Freigabestatus festlegen.
@@ -23,9 +25,9 @@ npm.cmd run build:standalone
 npm.cmd run preview:standalone
 ```
 
-Danach `http://127.0.0.1:3100` öffnen. Der Preview-Modus ist ausdrücklich ohne eigene Benutzeranmeldung und bindet ausschließlich an Loopback. Nur mit Testdaten verwenden. Mit Strg+C beenden. Er benötigt weder ein Sites-Konto noch Cloudflare, eine Sites-Laufzeit oder Microsoft.
+Danach `http://127.0.0.1:3100` öffnen: Die Startseite zeigt ausschließlich veröffentlichte Website-Beiträge. `/anmelden` führt zur eigenen Passwortanmeldung. Der lokale Einrichtungszugang `/werkstatt` ermöglicht die erste Kontoeinrichtung ohne Passwort und bindet ausschließlich an Loopback. Nur auf dem Entwicklungsrechner verwenden und mit Strg+C beenden. Für lokale Anmeldetests ohne diesen Betreiberzugang stattdessen `npm.cmd run preview:accounts` verwenden. Die unabhängige Anwendung benötigt weder Sites noch Microsoft. Die Anleitung `docs/anmeldung-0.3.md` erklärt Aktivierung und Wiederherstellung.
 
-Die lokale Datenbank liegt unter `data/cms.sqlite`, Dateien unter `data/files`. Der Inhalt bleibt nach einem Neustart erhalten. Diese Verzeichnisse werden nicht in Git aufgenommen. Bei Live-Backups SQLite-WAL berücksichtigen; bevorzugt den konsistenten Anwendungsexport nutzen.
+Die lokale Datenbank liegt standardmäßig unter `data/cms.sqlite`, Dateien unter `data/files`. Der Inhalt bleibt nach einem Neustart erhalten. Diese Verzeichnisse werden nicht in Git aufgenommen. Der JSON-Export sichert keine Passwörter. Für einen Umzug mit bestehenden Passwörtern die Anwendung anhalten und das vollständige Datenverzeichnis geschützt übertragen, siehe `docs/anmeldung-0.3.md`.
 
 ## Sites lokal
 
@@ -35,7 +37,7 @@ node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1
 npm.cmd run dev
 ```
 
-Die erste Migration nur einmal auf eine neue lokale Datenbank anwenden. Spätere Migrationen in Reihenfolge nachführen. Im Browser `http://127.0.0.1:5173/signin-with-chatgpt?return_to=/` für den ausschließlich lokalen Mock-Zugang öffnen. Hosted Sites verwenden die echte Plattformanmeldung. Die aktuelle Veröffentlichung bleibt owner-private; vor jeder Erweiterung des Publikums müssen eigene CMS-Mitgliedschaften und serverseitige Rollen ergänzt werden.
+Die erste Migration nur einmal auf eine neue lokale Datenbank anwenden. Spätere Migrationen in Reihenfolge nachführen. Im Browser `http://127.0.0.1:5173/signin-with-chatgpt?return_to=/` für den ausschließlich lokalen Mock-Zugang öffnen. Hosted Sites verwenden die echte Plattformanmeldung. Die aktuelle Veröffentlichung bleibt owner-private; die eigene Node.js-Passwortanmeldung wird dort nicht betrieben.
 
 Hosted-Veröffentlichung ausschließlich über den Sites-Workflow. Die Projektidentität steht in `.openai/hosting.json`. GitHub und Sites besitzen getrennte Quellcode-Ziele; die vorhandene GitHub-Verbindung darf nicht ersetzt werden.
 
@@ -64,11 +66,11 @@ In `.env` einen zufälligen Administrationsschlüssel mit mindestens 32 Zeichen 
 docker compose up --build -d
 ```
 
-Der Container ist nur auf `127.0.0.1:3100` des Docker-Hosts veröffentlicht. Ein separat konfigurierter HTTPS-Reverse-Proxy muss die externe Adresse dorthin weiterleiten. Keine direkte ungeschützte Portfreigabe. `/login` verwendet den temporären Administrationsschlüssel und eine sichere, zeitlich begrenzte Sitzung. Diese Übergangslösung ersetzt keine fertige Lehrkräfte-Benutzerverwaltung. Daten werden im Volume `cms-data` gespeichert. Nicht unbedacht `docker compose down -v` verwenden: damit würden Volumedaten gelöscht.
+Der Container ist nur auf `127.0.0.1:3100` des Docker-Hosts veröffentlicht. Ein separat konfigurierter HTTPS-Reverse-Proxy muss die externe Adresse dorthin weiterleiten. Keine direkte ungeschützte Portfreigabe. `/betrieb` verwendet den separaten Administrationsschlüssel zur Einrichtung unter `/werkstatt`. Lehrkräfte und Schüler verwenden `/anmelden` mit ihren eigenen Konten. Nach Aktivierung des Administratorkontos ist die tägliche Verwaltung unter `/verwaltung` möglich. Den Betreiberzugang als Notfallzugang geschützt verwahren. Daten werden im Volume `cms-data` gespeichert. Nicht unbedacht `docker compose down -v` verwenden: damit würden Volumedaten gelöscht.
 
 ## Noch nicht umgesetzt
 
-Verifizierte Aktivierung der vorbereiteten CMS-Konten und eigene Passwortanmeldung, Einladungsversand, Passwortwiederherstellung, Mehrfaktor-Anmeldung, Rollenfreigaben, öffentliche Schulwebsite, fertig ausgegebenes Intranet, vollständiger produktiver Serverbetrieb und automatische Backup-Aufbewahrung.
+Automatischer E-Mail-Versand und Nachweis des E-Mail-Besitzes, Mehrfaktor-Anmeldung, vollständige öffentliche Schulwebsite, vollständige Intranetstruktur, Klassenkommunikation, Seiteneditor und Freigabeprozess, produktiver Serverbetrieb und automatische Backup-Aufbewahrung. Aktivierungs- und Rücksetzlinks werden derzeit nach Identitätsprüfung persönlich durch die Administration ausgegeben. Es gibt keine offene Selbstregistrierung.
 
 Das bereitgestellte Original-SVG liegt unverändert unter `public/bsvg-logo.svg`. Es enthält falsch kodierte Textglyphen. Die Oberfläche zeigt deshalb vorläufig den Schulnamen als Text. Für das endgültige Logo wird ein korrigierter SVG-Export mit Schrift als Pfaden benötigt. Die CI-Schrift Poppins liegt mit OFL-Lizenz lokal bei.
 
@@ -86,4 +88,4 @@ Der Testlauf prüft echte SQLite-Installationen, Neustart/Persistenz, vollständ
 
 Unter **Benutzer** Konten vorbereiten und Rollen zuordnen. Unter **Klassen & Lehrgänge** Standort und Zeitraum anlegen und die Konten zuordnen. Eine Mitgliedschaft aktiviert kein Konto. Mit **Berechtigungen nachvollziehen** kann die Wirkung nach einer hypothetischen Aktivierung an einem gewählten Datum geprüft werden, ohne Daten zu ändern.
 
-Konkrete Personen- und Klassendaten liegen ausschließlich im privaten Laufzeitspeicher und gehören nicht in das Quellcode-ZIP. Die eigene Anmeldung und der Mailversand folgen im nächsten Ausbau.
+Konkrete Personen- und Klassendaten liegen ausschließlich im privaten Laufzeitspeicher und gehören nicht in das Quellcode-ZIP. Die eigene Anmeldung ist in der unabhängigen Serverversion umgesetzt; der automatische Mailversand folgt später. Die private Sites-Werkstatt verwendet weiterhin den getrennten Plattformzugang. Gleiche E-Mail-Adressen verbinden diese Identitäten nicht automatisch.

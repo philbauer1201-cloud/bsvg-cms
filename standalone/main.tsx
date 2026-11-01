@@ -1,4 +1,4 @@
 import { createRoot } from "react-dom/client";
-import CMS from "../app/cms";
+import StandaloneApp from "./portal";
 import "../app/globals.css";
-createRoot(document.getElementById("root")!).render(<CMS displayName="Lokaler Admin" mode="standalone" />);
+createRoot(document.getElementById("root")!).render(<StandaloneApp />);
