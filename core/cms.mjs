@@ -141,7 +141,7 @@ export async function handleApi(request, store, actor) {
       row.data.posts = [
         { title:'Zwei Standorte. Viele Möglichkeiten.',excerpt:'Eine gemeinsame Plattform für unsere Schule in Vöcklabruck und Gmunden.',body:'Dies ist ein frei bearbeitbarer Beispielbeitrag. Hier entsteht die gemeinsame digitale Heimat unserer Schule.',site:'all',audience:'website',status:'published' },
         { title:'Einblicke in den Schulalltag',excerpt:'Raum für Projekte, Begegnungen und Geschichten aus Vöcklabruck.',body:'Beispielinhalt für Vöcklabruck. Ersetzen Sie diesen Text durch einen eigenen Beitrag.',site:'voecklabruck',audience:'website',status:'draft' },
-        { title:'Gut organisiert ins neue Schuljahr',excerpt:'Wichtige Informationen für das Kollegium in Gmunden.',body:'Beispiel für eine interne Mitteilung. Die Intranet-Ausgabe und eigene Lehrkräftekonten folgen später.',site:'gmunden',audience:'intranet',status:'draft' },
+        { title:'Gut organisiert ins neue Schuljahr',excerpt:'Wichtige Informationen für das Kollegium in Gmunden.',body:'Beispielmitteilung für das Kollegium am Standort Gmunden.',site:'gmunden',audience:'intranet',status:'draft' },
       ].map(p => ({ ...p,id:uuid(),createdAt:now(),updatedAt:now() }));
       await commit(store,row,principal.id,'Drei Beispielbeiträge geladen'); return json({ ok:true });
     }
