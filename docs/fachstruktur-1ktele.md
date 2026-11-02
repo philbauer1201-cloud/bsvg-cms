@@ -1,3 +1,5 @@
+> Historischer Stand. Aktuelle Bedienung: [Lehrberufe und Klassenbereich](lehrberufe-und-klassenbereich.md).
+
 # Fachstruktur für die Testklasse 1kTELE
 
 Arbeitsstand für die Implementierung. Die Zuordnungen sind noch keine wirksamen Berechtigungen.

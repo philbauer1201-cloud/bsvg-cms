@@ -1,3 +1,5 @@
+> Historischer Stand. Aktuelle Bedienung: [Lehrberufe und Klassenbereich](lehrberufe-und-klassenbereich.md).
+
 # Fachverwaltung – Bedienung und aktueller Umfang
 
 Unter Verwaltung → Klassen & Lehrgänge stehen Fachkatalog, Fachvorlagen und die Funktionen der ausgewählten Klasse zur Verfügung.

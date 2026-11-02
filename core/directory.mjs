@@ -82,12 +82,12 @@ export function directoryProjection(data,principal,day=todayVienna()) {
   if(can(principal,'directory:manage'))return data.directory;
   const classes=data.directory.classes.filter(c=>classAccess(data.directory,principal,c.id,day).read);
   const ids=new Set(classes.map(c=>c.id));
-  return {subjects:(data.directory.subjects??[]).filter(s=>classes.some(c=>(c.subjectIds??[]).includes(s.id))),templates:[],users:principal.user?[principal.user]:[],classes:classes.map(({assignments,...c})=>c),memberships:data.directory.memberships.filter(m=>m.userId===principal.id&&ids.has(m.classId)&&m.status==='active')};
+  return {subjects:(data.directory.subjects??[]).filter(s=>classes.some(c=>(c.subjectIds??[]).includes(s.id))),templates:[],users:principal.user?[principal.user]:[],classes:classes.map(({assignments,...c})=>({...c,myAssignment:(assignments??[]).find(a=>a.userId===principal.id)??null})),memberships:data.directory.memberships.filter(m=>m.userId===principal.id&&ids.has(m.classId)&&m.status==='active')};
 }
 export async function directoryAction(request,path,method,row,principal,save,readJson) {
   ensure(can(principal,'directory:manage'),'Nur die Administration darf Benutzer, Klassen und Mitgliedschaften verwalten.',403);
   const d=row.data.directory;
-  if(/^\/api\/(subjects|templates)(\/|$)/.test(path)){if(await curriculumAction(path,method,await readJson(request),d)){await save(row,"Fachkatalog aktualisiert");return {ok:true};}}
+  if(/^\/api\/(subjects|templates|occupation-subjects)(\/|$)/.test(path)){if(await curriculumAction(path,method,await readJson(request),d)){await save(row,"Fachkatalog aktualisiert");return {ok:true};}}
   const userMatch=path.match(/^\/api\/users\/([a-f0-9-]{36})$/),classMatch=path.match(/^\/api\/classes\/([a-f0-9-]{36})$/),memberMatch=path.match(/^\/api\/memberships\/([a-f0-9-]{36})$/);
   if((path==='/api/users'&&method==='POST')||(userMatch&&method==='PUT')) {
     const input=userInput(await readJson(request)),old=userMatch?d.users.find(u=>u.id===userMatch[1]):null;
@@ -105,7 +105,7 @@ export async function directoryAction(request,path,method,row,principal,save,rea
   if((path==='/api/classes'&&method==='POST')||(classMatch&&method==='PUT')) {
     const payload=await readJson(request),old=classMatch?d.classes.find(c=>c.id===classMatch[1]):null;
     const input=classInput(old?{...old,...payload}:payload);
-    const template=d.templates.find(t=>t.occupation===input.occupation&&t.schoolYear===input.schoolYear&&t.site===input.site);input.subjectIds=payload.subjectIds??old?.subjectIds??template?.subjectIds??[];input.assignments=payload.assignments??old?.assignments??[];
+    const template=d.templates.find(t=>t.occupation===input.occupation&&t.schoolYear===input.schoolYear&&t.site===input.site);const changed=old&&(old.occupation!==input.occupation||old.schoolYear!==input.schoolYear||old.site!==input.site);if(changed&&input.occupation)ensure(template,'Für diesen Lehrberuf und diese Schulstufe fehlen Unterrichtsfächer.');input.subjectIds=changed&&template?template.subjectIds:payload.subjectIds??old?.subjectIds??template?.subjectIds??[];input.assignments=payload.assignments??old?.assignments??[];if(changed&&template)input.assignments=input.assignments.map(a=>({...a,subjectIds:a.subjectIds.filter(id=>input.subjectIds.includes(id))}));
     ensure(!classMatch||old,'Klasse nicht gefunden.',404);
     ensure(!d.classes.some(c=>c.id!==old?.id&&c.name.toLowerCase()===input.name.toLowerCase()&&c.course.toLowerCase()===input.course.toLowerCase()&&c.site===input.site&&c.startDate===input.startDate),'Diese Klasse ist bereits angelegt.',409);
     ensure(d.classes.length<200||old,'Maximal 200 Lehrgangsklassen.');

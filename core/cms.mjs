@@ -73,8 +73,18 @@ export async function handleApi(request, store, actor) {
       const access=classAccess(initial.data.directory,principal,classDetail[1]);check(access.read,'Kein Zugriff auf diese Lehrgangsklasse.',403);
       return json({class:initial.data.directory.classes.find(c=>c.id===classDetail[1]),access});
     }
-    if(/^\/api\/(users|classes|memberships|subjects|templates)(\/|$)/.test(path)||path==='/api/permissions/check') {
+    if(/^\/api\/(users|classes|memberships|subjects|templates|occupation-subjects)(\/|$)/.test(path)||path==='/api/permissions/check') {
       return json(await directoryAction(request,path,method,initial,principal,(row,message)=>commit(store,row,principal.id,message),requestJson),method==='POST'&&path!=='/api/permissions/check'?201:200);
+    }
+    const announcement=path.match(/^\/api\/class-announcements\/([a-f0-9-]{36})$/);
+    if(announcement&&method==='POST'){
+      const reader=personalPrincipal(principal),c=initial.data.directory.classes.find(c=>c.id===announcement[1]);
+      check(c&&reader.roles.includes('teacher')&&classAccess(initial.data.directory,reader,c.id).write,'Nur zugeordnete Lehrkräfte einer laufenden Klasse dürfen hier veröffentlichen.',403);
+      const p=await requestJson(request);check(p&&typeof p==="object","Mitteilung fehlt.");const assignment=(c.assignments??[]).find(a=>a.userId===principal.id);
+      check(p.kind==='subject'||p.kind==='kv','Ungültiger Mitteilungstyp.');
+      check(p.kind==='kv'?assignment?.function==='head':!!p.subjectId&&assignment?.subjectIds.includes(p.subjectId),'Keine Berechtigung für diese Klassenfunktion oder dieses Fach.',403);
+      const input=postInput({title:p.title,body:p.body,excerpt:'',site:c.site,status:'published',audience:'students',audiences:['students'],classIds:[c.id],subjectId:p.kind==='subject'?p.subjectId:null,course:c.course,teacherGroup:'all'});checkPostClass(initial.data,input);
+      check(initial.data.posts.length<500,'Maximal 500 Beiträge.');initial.data.posts.unshift({...input,id:uuid(),createdAt:now(),updatedAt:now()});await commit(store,initial,principal.id,p.kind==='kv'?'Klassenmitteilung veröffentlicht':'Fachmitteilung veröffentlicht');return json({ok:true},201);
     }
     if(path==='/api/backup'||path==='/api/restore'||path==='/api/demo')check(can(principal,'backup'),'Nur die Administration darf sichern, wiederherstellen oder Beispieldaten laden.',403);
     if(!['GET','HEAD'].includes(method))check(can(principal,'content:manage'),'Keine Berechtigung zum Verändern von Inhalten.',403);
