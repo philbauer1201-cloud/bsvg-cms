@@ -1,3 +1,4 @@
+import AreaSwitcher from '../app/area-switcher';
 import { useEffect,useState,type FormEvent,type ReactNode } from "react";
 import { ArrowRight,ArrowUpRight,GraduationCap,Users,LockKeyhole,LogOut,Settings2,CalendarDays,MapPin,ShieldCheck,FileText,Download,LoaderCircle,Check,KeyRound } from "lucide-react";
 import CMS from "../app/cms";
@@ -13,7 +14,7 @@ async function call(path:string,body:unknown,headers:Record<string,string>={}) {
 function Brand(){return <a href="/" className="school-brand" aria-label="BSVG Schulwebsite"><img className="school-logo" src="/bsvg-logo.svg" alt="Berufsschule Vöcklabruck-Gmunden" width={340} height={248}/></a>;}
 function Header({session}:{session?:Session|null}) {
   async function logout(){try{await call("/auth/logout",{});window.location.assign("/");}catch{window.location.assign("/anmelden");}}
-  return <header className="portal-header"><Brand/><nav aria-label="Bereiche"><a href="/">Schulwebsite</a>{session?.authenticated?<>{session.capabilities.staffRead&&<a href="/lehrkraefte">Mein Intranet</a>}{session.capabilities.roles.includes("student")&&<a href="/schueler">Mein Schülerbereich</a>}{(session.capabilities.directoryManage||session.capabilities.contentManage)&&<a href={session.workshop?"/werkstatt":"/verwaltung"}>Verwaltung</a>}<button onClick={logout} className="text-button"><LogOut size={15}/>Abmelden</button></>:<><a href="/anmelden?bereich=lehrkraefte">Lehrkräfte-Login</a><a className="button primary" href="/anmelden?bereich=schueler">Schüler-Login <ArrowRight size={15}/></a></>}</nav></header>;
+  return <><header className="portal-header"><Brand/><nav aria-label="Bereiche"><a href="/">Schulwebsite</a>{session?.authenticated?<>{session.capabilities.staffRead&&<a href="/lehrkraefte">Mein Intranet</a>}{session.capabilities.roles.includes("student")&&<a href="/schueler">Mein Schülerbereich</a>}{(session.capabilities.directoryManage||session.capabilities.contentManage)&&<a href={session.workshop?"/werkstatt":"/verwaltung"}>Verwaltung</a>}<button onClick={logout} className="text-button"><LogOut size={15}/>Abmelden</button></>:<><a href="/anmelden?bereich=lehrkraefte">Lehrkräfte-Login</a><a className="button primary" href="/anmelden?bereich=schueler">Schüler-Login <ArrowRight size={15}/></a></>}</nav></header><AreaSwitcher active={window.location.pathname==="/lehrkraefte"?"teachers":window.location.pathname==="/schueler"?"students":["/verwaltung","/werkstatt","/betrieb"].includes(window.location.pathname)?"admin":"public"} adminHref={session?.workshop?"/werkstatt":"/verwaltung"}/></>;
 }
 function AuthForm({kind}:{kind:"login"|"activation"|"reset"|"change"}) {
   const [email,setEmail]=useState(""),[password,setPassword]=useState(""),[confirm,setConfirm]=useState(""),[current,setCurrent]=useState(""),[token,setToken]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState(""),[done,setDone]=useState(false);
@@ -50,7 +51,7 @@ export default function StandaloneApp() {
   if(["/anmelden","/konto-aktivieren","/passwort-zuruecksetzen","/konto/passwort"].includes(path))return <><Header session={session}/><AuthForm kind={path==="/anmelden"?"login":path==="/konto-aktivieren"?"activation":path==="/konto/passwort"?"change":"reset"}/></>;
   if(path==="/")return <PublicHome session={session}/>;
   if(!loaded)return <div className="loading"><LoaderCircle className="spin"/>Zugang wird geprüft …</div>;
-  if(!session)return <div className="signin"><Brand/><h1>Bitte anmelden.</h1><a className="button primary" href="/anmelden">Zur Anmeldung</a></div>;
-  if(path==="/werkstatt"||path==="/verwaltung")return <><div className="management-strip"><span><ShieldCheck size={14}/>{session.workshop?"Entwicklungswerkstatt / Betreiberzugang":"BSVG · Verwaltung"}</span><a href={session.workshop?"/":"/lehrkraefte"}>{session.workshop?"Zur Testwebsite":"Mein Intranet"}<ArrowUpRight size={14}/></a></div><CMS displayName={session.name} mode="standalone" workshop={session.workshop}/></>;
+  if(!session)return <><Header/><div className="signin"><Brand/><h1>Bitte anmelden.</h1><a className="button primary" href="/anmelden">Zur Anmeldung</a></div></>;
+  if(path==="/werkstatt"||path==="/verwaltung")return <><AreaSwitcher active="admin" adminHref={session.workshop?"/werkstatt":"/verwaltung"}/><div className="management-strip"><span><ShieldCheck size={14}/>{session.workshop?"Entwicklungswerkstatt / Betreiberzugang":"BSVG · Verwaltung"}</span><a href={session.workshop?"/":"/lehrkraefte"}>{session.workshop?"Zur Testwebsite":"Mein Intranet"}<ArrowUpRight size={14}/></a></div><CMS displayName={session.name} mode="standalone" workshop={session.workshop}/></>;
   return <PersonalPortal session={session} student={path==="/schueler"}/>;
 }
