@@ -67,6 +67,14 @@ export async function handleApi(request, store, actor) {
     const initial=await read(store),principal=resolvePrincipal(initial.data,actor);
     const url = new URL(request.url), path = url.pathname, method = request.method;
     if (!['GET','HEAD'].includes(method)) check(request.headers.get('origin') === url.origin, 'Anfrage stammt nicht aus dieser Anwendung.', 403);
+    if(path==='/api/teacher-preview') {
+      check(method==='GET','Die Lehrkräfte-Vorschau ist schreibgeschützt.',405);
+      check(principal.workshop&&can(principal,'directory:manage'),'Die Vorschau ist nur in der geschützten Werkstatt verfügbar.',403);
+      const user=initial.data.directory.users.find(u=>u.id===url.searchParams.get('userId'));
+      check(user&&user.roles.includes('teacher')&&user.status!=='disabled','Lehrkraft nicht gefunden.',404);
+      const reader={id:user.id,user,roles:['teacher'],workshop:false,active:true};
+      return json({posts:initial.data.posts.filter(p=>visiblePost(initial.data,reader,p)),files:[],directory:directoryProjection(initial.data,reader),preview:true});
+    }
     if(path==='/api/directory'&&method==='GET')return json({directory:directoryProjection(initial.data,principal),capabilities:capabilities(initial.data,principal)});
     const classDetail=path.match(/^\/api\/classes\/([a-f0-9-]{36})$/);
     if(classDetail&&method==='GET') {
