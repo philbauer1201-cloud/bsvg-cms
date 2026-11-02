@@ -1,3 +1,4 @@
+import {isPublic} from '../core/targeting.mjs';
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -61,7 +62,7 @@ export async function startServer(options={}) {
       }
       if(url.pathname==='/login'&&method==='GET'){res.writeHead(303,{location:'/betrieb'});return res.end();}
       if(url.pathname==='/api/public'&&method==='GET') {
-        const row=await store.read();const posts=(row?.data.posts??[]).filter(p=>p.audience==='website'&&p.status==='published'&&!p.classId).map(({id,title,excerpt,body,site,updatedAt})=>({id,title,excerpt,body,site,updatedAt}));return send(json({posts}));
+        const row=await store.read();const posts=(row?.data.posts??[]).filter(p=>isPublic(p)&&p.status==='published').map(({id,title,excerpt,body,site,updatedAt})=>({id,title,excerpt,body,site,updatedAt}));return send(json({posts}));
       }
       if(url.pathname==='/auth/session'&&method==='GET') {
         const requested=url.searchParams.get('workshop')==='1';

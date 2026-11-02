@@ -1,3 +1,4 @@
+import {targets,personalPrincipal} from './targeting.mjs';
 import {CurriculumError} from './curriculum.mjs';
 import { normalizeDirectory, newDirectory, resolvePrincipal, capabilities, can, classAccess, directoryProjection, directoryAction, validateDirectory, visiblePost, DirectoryError } from './directory.mjs';
 export const MAX_FILE = 2 * 1024 * 1024;
@@ -20,7 +21,13 @@ function postInput(p) {
   check(['website', 'intranet','students'].includes(p.audience), 'Zielbereich ist ungültig.');
   check(p.classId===undefined||p.classId===null||validId(p.classId),'Klassenkennung ist ungültig.');
   check(p.audience!=='website'||!p.classId,'Öffentliche Beiträge dürfen nicht auf eine Klasse beschränkt werden.');
-  return { title, excerpt, body, site: p.site, status: p.status, audience: p.audience, classId:p.classId??null };
+  const t=targets(p);
+  check(Array.isArray(t.audiences)&&t.audiences.length>0&&t.audiences.length<=2&&new Set(t.audiences).size===t.audiences.length&&t.audiences.every(a=>['website','intranet','students'].includes(a)),'Ungültige Empfängergruppen.');
+  check(Array.isArray(t.classIds)&&t.classIds.length<=200&&new Set(t.classIds).size===t.classIds.length&&t.classIds.every(validId),'Ungültige Klassen.');
+  check(t.subjectId===null||validId(t.subjectId),'Ungültiges Fach.');check(typeof t.course==='string'&&t.course.length<=60,'Ungültiger Lehrgang.');check(['all','heads'].includes(t.teacherGroup),'Ungültige Lehrkräftegruppe.');
+  check(!t.audiences.includes('website')||(t.audiences.length===1&&!t.classIds.length&&!t.subjectId&&!t.course&&t.teacherGroup==='all'),'Öffentliche Beiträge dürfen keine internen Empfänger enthalten.');
+  check(t.teacherGroup==='all'||t.audiences.includes('intranet'),'KV-Auswahl benötigt Lehrkräfte als Empfänger.');
+  return {title,excerpt,body,site:p.site,status:p.status,audience:t.audiences[0],classId:t.classIds.length===1?t.classIds[0]:null,...t};
 }
 const validDate = v => typeof v === 'string' && Number.isFinite(Date.parse(v));
 const validId = v => typeof v === 'string' && /^[a-f0-9-]{36}$/.test(v);
@@ -42,10 +49,9 @@ function unbase64(v) {
 async function sha(bytes) { return [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map(v => v.toString(16).padStart(2,'0')).join(''); }
 const read = async store => { const row=await store.read()??{revision:0,data:empty()};return {...row,data:normalizeDirectory(row.data)}; };
 function checkPostClass(data,p) {
-  if(!p.classId)return;
-  const c=data.directory.classes.find(c=>c.id===p.classId);
-  check(c,'Die zugeordnete Klasse existiert nicht.');
-  check(p.site==='all'||p.site===c.site,'Beitrag und Klasse müssen zum selben Standort gehören.');
+  const t=targets(p);for(const id of t.classIds){const c=data.directory.classes.find(c=>c.id===id);check(c,'Die zugeordnete Klasse existiert nicht.');check(p.site==='all'||p.site===c.site,'Beitrag und Klasse müssen zum selben Standort gehören.');check(!t.course||t.course===c.course,'Klasse und Lehrgang passen nicht zusammen.');check(!t.subjectId||(c.subjectIds??[]).includes(t.subjectId),'Das Fach ist der Klasse nicht zugeordnet.');}
+  if(t.subjectId){const subject=data.directory.subjects.find(s=>s.id===t.subjectId);check(subject,'Fach nicht gefunden.');check(!subject.optional,'Für Freigegenstände muss zuerst die persönliche Teilnahmeverwaltung eingerichtet werden.');}
+
 }
 async function commit(store, row, actor, message) {
   row.data.activity.unshift({ id: uuid(), at: now(), actor, text: message }); row.data.activity = row.data.activity.slice(0,30);
@@ -73,8 +79,8 @@ export async function handleApi(request, store, actor) {
     if(path==='/api/backup'||path==='/api/restore'||path==='/api/demo')check(can(principal,'backup'),'Nur die Administration darf sichern, wiederherstellen oder Beispieldaten laden.',403);
     if(!['GET','HEAD'].includes(method))check(can(principal,'content:manage'),'Keine Berechtigung zum Verändern von Inhalten.',403);
     if (path === '/api/state' && method === 'GET') {
-      const row = initial;
-      return json({ ...row.data,posts:row.data.posts.filter(p=>visiblePost(row.data,principal,p)),files:row.data.files.filter(f=>can(principal,'content:manage')||can(principal,'staff:read')).map(({key,...f})=>f),activity:can(principal,'directory:manage')?row.data.activity:[],directory:directoryProjection(row.data,principal),capabilities:capabilities(row.data,principal),revision:row.revision });
+      const row=initial,reader=url.searchParams.get("personal")==="1"?personalPrincipal(principal):principal;
+      return json({ ...row.data,posts:row.data.posts.filter(p=>visiblePost(row.data,reader,p)),files:row.data.files.filter(f=>can(principal,'content:manage')||can(principal,'staff:read')).map(({key,...f})=>f),activity:can(principal,'directory:manage')?row.data.activity:[],directory:directoryProjection(row.data,reader),capabilities:capabilities(row.data,principal),revision:row.revision });
     }
     if (path === '/api/posts' && method === 'POST') {
       const input = postInput(await requestJson(request)), row = initial; check(row.data.posts.length < 500, 'Maximal 500 Beiträge im Grundgerüst.');
@@ -84,8 +90,9 @@ export async function handleApi(request, store, actor) {
     }
     const pm = path.match(/^\/api\/posts\/([a-f0-9-]{36})$/);
     if (pm && ['PUT','DELETE'].includes(method)) {
-      const input = method === 'PUT' ? postInput(await requestJson(request)) : null, row = initial, i = row.data.posts.findIndex(p => p.id === pm[1]);
+      const payload=method==='PUT'?await requestJson(request):null,input=payload?postInput(payload):null, row = initial, i = row.data.posts.findIndex(p => p.id === pm[1]);
       check(i >= 0, 'Beitrag nicht gefunden.',404); const old = row.data.posts[i];
+      if(payload&&(old.audiences||old.classIds))check(Array.isArray(payload.audiences)&&Array.isArray(payload.classIds),'Bitte die aktuelle Beitragsbearbeitung verwenden.');
       if(input)checkPostClass(row.data,input);
       if (input) row.data.posts[i] = { ...old, ...input, updatedAt: now() }; else row.data.posts.splice(i,1);
       await commit(store,row,principal.id,`Beitrag „${old.title}“ ${input ? 'aktualisiert' : 'gelöscht'}`); return json({ ok: true });
@@ -115,11 +122,11 @@ export async function handleApi(request, store, actor) {
       const row = initial, files = [];
       for (const { key,...f } of row.data.files) { const bytes = await store.getFile(key); check(bytes,`Datei „${f.name}“ fehlt.`,409); check(await sha(bytes) === f.sha256,`Prüfsumme von „${f.name}“ stimmt nicht.`,409); files.push({ ...f, base64: base64(bytes) }); }
       check((await read(store)).revision === row.revision,'Daten wurden während des Exports geändert. Bitte erneut exportieren.',409);
-      return json({ format:'bsvg-cms',version:2,exportedAt:now(),posts:row.data.posts,activity:row.data.activity,files,directory:row.data.directory },200,{ 'content-disposition':`attachment; filename="bsvg-backup-${now().slice(0,10)}.json"` });
+      return json({ format:'bsvg-cms',version:3,exportedAt:now(),posts:row.data.posts,activity:row.data.activity,files,directory:row.data.directory },200,{ 'content-disposition':`attachment; filename="bsvg-backup-${now().slice(0,10)}.json"` });
     }
     if (path === '/api/restore' && method === 'POST') {
-      const b = await requestJson(request); check(b?.format === 'bsvg-cms' && [1,2].includes(b.version),'Unbekanntes Backupformat oder nicht unterstützte Version.');
-      const directory=b.version===2?validateDirectory(b.directory,{resetActivation:true}):initial.data.directory;
+      const b = await requestJson(request); check(b?.format === 'bsvg-cms' && [1,2,3].includes(b.version),'Unbekanntes Backupformat oder nicht unterstützte Version.');
+      const directory=b.version>=2?validateDirectory(b.directory,{resetActivation:true}):initial.data.directory;
       check(Array.isArray(b.posts) && b.posts.length <= 500 && Array.isArray(b.files) && b.files.length <= 40,'Ungültige Einträge im Backup.');
       const ids = new Set();
       const posts = b.posts.map(p => { check(validId(p.id) && !ids.has(p.id) && validDate(p.createdAt) && validDate(p.updatedAt),'Ungültige oder doppelte Beitragskennung.'); ids.add(p.id); return { ...postInput(p),id:p.id,createdAt:p.createdAt,updatedAt:p.updatedAt }; });

@@ -1,3 +1,4 @@
+import {targets} from './targeting.mjs';
 import {curriculumDefaults,validateCurriculum,curriculumAction} from './curriculum.mjs';
 export const ROLES = ['admin','teacher','editor','student'];
 export class DirectoryError extends Error { constructor(message,status=400) { super(message); this.status=status; } }
@@ -67,13 +68,14 @@ export function capabilities(data,principal,day=todayVienna()) {
 export function visiblePost(data,principal,post,day=todayVienna()) {
   if(can(principal,'content:manage'))return true;
   if(post.status!=='published')return false;
-  if(post.classId&&!classAccess(data.directory,principal,post.classId,day).read)return false;
-  if(post.audience==='website')return !post.classId;
-  if(post.audience==='intranet')return can(principal,'staff:read');
-  if(post.audience==='students') {
-    if(post.classId)return classAccess(data.directory,principal,post.classId,day).read;
-    return data.directory.classes.some(c=>(post.site==='all'||post.site===c.site)&&classAccess(data.directory,principal,c.id,day).read);
+  const t=targets(post);if(t.audiences.includes('website'))return !t.classIds.length;
+  const classes=data.directory.classes.filter(c=>(post.site==='all'||post.site===c.site)&&(!t.course||c.course===t.course)&&(!t.classIds.length||t.classIds.includes(c.id))&&(!t.subjectId||(c.subjectIds??[]).includes(t.subjectId))&&classAccess(data.directory,principal,c.id,day).read);
+  if(t.audiences.includes('intranet')&&can(principal,'staff:read')){
+    const scoped=post.site!=='all'||t.course||t.classIds.length||t.subjectId||t.teacherGroup==='heads';
+    if(!scoped)return true;
+    return classes.some(c=>(t.teacherGroup!=='heads'||(c.assignments??[]).some(a=>a.userId===principal.id&&a.function==='head'))&&(!t.subjectId||(c.assignments??[]).some(a=>a.userId===principal.id&&a.subjectIds.includes(t.subjectId))));
   }
+  if(t.audiences.includes('students'))return classes.length>0;
   return false;
 }
 export function directoryProjection(data,principal,day=todayVienna()) {

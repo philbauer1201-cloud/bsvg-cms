@@ -35,7 +35,7 @@ test('Konten deduplizieren, Mehrfachrollen, Klasse und Mitgliedschaften speicher
     const simulation=await(await f.api('/api/permissions/check','POST',{userId:student.id,day:'2026-11-18',simulateActivation:true})).json();
     assert.equal(simulation.classChecks[0].read,true);assert.equal(simulation.classChecks[0].write,false);assert.equal(simulation.capabilities.directoryManage,false);
     assert.deepEqual(await f.store.read(),before,'Simulation darf Konto nicht aktivieren.');
-    const backup=await(await f.api('/api/backup')).json();assert.equal(backup.version,2);assert.equal(backup.directory.users.length,2);
+    const backup=await(await f.api('/api/backup')).json();assert.equal(backup.version,3);assert.equal(backup.directory.users.length,2);
     const g=await fixture();try{assert.equal((await g.api('/api/restore','POST',backup)).status,200);assert.deepEqual((await g.state()).directory,backup.directory);}finally{await g.close();}
     const malformed=structuredClone(backup);malformed.directory.memberships[0].userId=crypto.randomUUID();assert.equal((await f.api('/api/restore','POST',malformed)).status,400);assert.deepEqual(await f.store.read(),before);
     const legacy={...backup,version:1};delete legacy.directory;assert.equal((await f.api('/api/restore','POST',legacy)).status,200);assert.equal((await f.state()).directory.users.length,2);
