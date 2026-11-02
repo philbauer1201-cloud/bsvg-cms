@@ -80,3 +80,37 @@ test('Lehrgangszeitraum gilt einschließlich Enddatum in Wien; Lehrkraft und Sch
   assert.equal(validDay('2026-02-30'),false);assert.equal(validDay('2027-02-09'),true);
   c.archived=true;assert.equal(classAccess(directory,tp,c.id,'2026-11-18').read,false);
 });
+
+test('Lehrberuf und Schulstufe überstehen Export und Wiederherstellung, alte Klassen bleiben lesbar',async()=>{
+ const f=await fixture(),g=await fixture();try{
+  const payload={name:'Testklasse',course:'2',site:'voecklabruck',startDate:'2026-11-01',endDate:'2027-02-09',occupation:'Einzelhandel',schoolYear:1};
+  assert.equal((await f.api('/api/classes','POST',payload)).status,201);
+  assert.equal((await f.api('/api/classes','POST',{...payload,name:'Fehler',schoolYear:null})).status,400);
+  const backup=await(await f.api('/api/backup')).json();assert.equal(backup.directory.classes[0].occupation,'Einzelhandel');
+  assert.equal((await g.api('/api/restore','POST',backup)).status,200);
+  const restored=(await g.state()).directory.classes[0];assert.equal(restored.schoolYear,1);assert.equal(restored.occupation,'Einzelhandel');
+  const {occupation,schoolYear,...legacyEdit}=restored;
+  assert.equal((await g.api(`/api/classes/${restored.id}`,'PUT',{...legacyEdit,name:'Aktualisiert'})).status,200);
+  const edited=(await g.state()).directory.classes[0];assert.equal(edited.occupation,'Einzelhandel');assert.equal(edited.schoolYear,1);
+  const legacy={...backup,directory:{...backup.directory,classes:backup.directory.classes.map(({occupation,schoolYear,...rest})=>rest)}};
+  assert.equal((await g.api('/api/restore','POST',legacy)).status,200);assert.equal((await g.state()).directory.classes[0].occupation,null);
+ }finally{await f.close();await g.close();}
+});
+
+test('Fachvorlagen ordnen neue Klassen zu; Katalog und KV überstehen Sicherung; Schüler dürfen nichts ändern',async()=>{
+ const f=await fixture(),g=await fixture();try{
+  await f.api('/api/subjects','POST',{code:'VP',name:'Verkaufskompetenz und Persönlichkeitsentwicklung'});
+  const sub=(await f.state()).directory.subjects[0];
+  assert.equal((await f.api('/api/subjects','POST',{code:'VP',name:'Doppelt'})).status,400);
+  await f.api('/api/templates','POST',{occupation:'Einzelhandel',schoolYear:1,site:'voecklabruck',subjectIds:[sub.id]});
+  const k={name:'Test',course:'2',occupation:'Einzelhandel',schoolYear:1,site:'voecklabruck',startDate:'2026-11-01',endDate:'2027-02-09'};
+  await f.api('/api/classes','POST',k);let c=(await f.state()).directory.classes[0];assert.deepEqual(c.subjectIds,[sub.id]);
+  await f.api('/api/users','POST',{email:'teacher@example.test',roles:['teacher']});const u=(await f.state()).directory.users[0];
+  await f.api('/api/memberships','POST',{userId:u.id,classId:c.id,role:'teacher'});
+  assert.equal((await f.api(`/api/classes/${c.id}`,'PUT',{...c,assignments:[{userId:u.id,function:'head',subjectIds:[sub.id]}]})).status,200);
+  const backup=await(await f.api('/api/backup')).json();assert.equal((await g.api('/api/restore','POST',backup)).status,200);assert.equal((await g.state()).directory.classes[0].assignments[0].function,'head');
+  const bad=structuredClone(backup);bad.directory.classes[0].assignments[0].subjectIds=[crypto.randomUUID()];assert.equal((await g.api('/api/restore','POST',bad)).status,400);
+  const row=await f.store.read();row.data.directory.users[0].status='active';row.data.directory.users[0].roles=['student'];await f.store.write(row.revision,row.data);
+  assert.equal((await f.api('/api/subjects','POST',{code:'X',name:'Verboten'},{kind:'cms',userId:u.id})).status,403);
+ }finally{await f.close();await g.close();}
+});

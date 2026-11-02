@@ -1,3 +1,4 @@
+import {CurriculumError} from './curriculum.mjs';
 import { normalizeDirectory, newDirectory, resolvePrincipal, capabilities, can, classAccess, directoryProjection, directoryAction, validateDirectory, visiblePost, DirectoryError } from './directory.mjs';
 export const MAX_FILE = 2 * 1024 * 1024;
 export const MAX_BACKUP = 20 * 1024 * 1024;
@@ -66,7 +67,7 @@ export async function handleApi(request, store, actor) {
       const access=classAccess(initial.data.directory,principal,classDetail[1]);check(access.read,'Kein Zugriff auf diese Lehrgangsklasse.',403);
       return json({class:initial.data.directory.classes.find(c=>c.id===classDetail[1]),access});
     }
-    if(/^\/api\/(users|classes|memberships)(\/|$)/.test(path)||path==='/api/permissions/check') {
+    if(/^\/api\/(users|classes|memberships|subjects|templates)(\/|$)/.test(path)||path==='/api/permissions/check') {
       return json(await directoryAction(request,path,method,initial,principal,(row,message)=>commit(store,row,principal.id,message),requestJson),method==='POST'&&path!=='/api/permissions/check'?201:200);
     }
     if(path==='/api/backup'||path==='/api/restore'||path==='/api/demo')check(can(principal,'backup'),'Nur die Administration darf sichern, wiederherstellen oder Beispieldaten laden.',403);
@@ -145,5 +146,5 @@ export async function handleApi(request, store, actor) {
       await commit(store,row,principal.id,'Drei Beispielbeiträge geladen'); return json({ ok:true });
     }
     return json({ error:'Endpunkt nicht gefunden.' },404);
-  } catch (e) { if (e instanceof CmsError||e instanceof DirectoryError) return json({ error:e.message },e.status); console.error('CMS request failed',e instanceof Error ? e.message : 'unknown'); return json({ error:'Der Vorgang konnte nicht abgeschlossen werden. Bitte erneut versuchen.' },500); }
+  } catch (e) { if (e instanceof CmsError||e instanceof DirectoryError||e instanceof CurriculumError) return json({ error:e.message },e.status); console.error('CMS request failed',e instanceof Error ? e.message : 'unknown'); return json({ error:'Der Vorgang konnte nicht abgeschlossen werden. Bitte erneut versuchen.' },500); }
 }

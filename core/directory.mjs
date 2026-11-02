@@ -1,8 +1,9 @@
+import {curriculumDefaults,validateCurriculum,curriculumAction} from './curriculum.mjs';
 export const ROLES = ['admin','teacher','editor','student'];
 export class DirectoryError extends Error { constructor(message,status=400) { super(message); this.status=status; } }
 const ensure=(ok,message,status=400)=>{ if(!ok) throw new DirectoryError(message,status); };
-export const newDirectory=()=>({users:[],classes:[],memberships:[]});
-export const normalizeDirectory=data=>({ ...data,posts:(data.posts??[]).map(p=>({...p,classId:p.classId??null})),directory:data.directory??newDirectory() });
+export const newDirectory=()=>({users:[],classes:[],memberships:[],subjects:[],templates:[]});
+export const normalizeDirectory=data=>({ ...data,posts:(data.posts??[]).map(p=>({...p,classId:p.classId??null})),directory:curriculumDefaults(data.directory??newDirectory()) });
 export function todayVienna(now=new Date()) {
   const p=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Vienna',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(now);
   return ['year','month','day'].map(k=>p.find(v=>v.type===k).value).join('-');
@@ -28,7 +29,11 @@ export function classInput(p) {
   ensure(['voecklabruck','gmunden'].includes(p.site),'Bitte einen Standort wählen.');
   ensure(validDay(p.startDate)&&validDay(p.endDate)&&p.startDate<=p.endDate,'Bitte einen gültigen Zeitraum mit Beginn vor dem Ende wählen.');
   ensure(p.archived===undefined||typeof p.archived==='boolean','Archivstatus ungültig.');
-  return {name,course,site:p.site,startDate:p.startDate,endDate:p.endDate,archived:p.archived??false};
+  const occupation=p.occupation==null||p.occupation===''?null:text(p.occupation,100,'Lehrberuf');
+  const schoolYear=p.schoolYear==null||p.schoolYear===''?null:Number(p.schoolYear);
+  ensure(schoolYear===null||Number.isInteger(schoolYear)&&schoolYear>=1&&schoolYear<=4,'Bitte eine gültige Klasse (1 bis 4) auswählen.');
+  ensure((occupation===null)===(schoolYear===null),'Lehrberuf und Klasse müssen gemeinsam angegeben werden.');
+  return {name,course,site:p.site,startDate:p.startDate,endDate:p.endDate,archived:p.archived??false,occupation,schoolYear};
 }
 export function classPhase(c,day=todayVienna()) { if(c.archived)return 'archived'; return day<c.startDate?'planned':day>c.endDate?'ended':'active'; }
 export function resolvePrincipal(data,actor,day=todayVienna()) {
@@ -75,11 +80,12 @@ export function directoryProjection(data,principal,day=todayVienna()) {
   if(can(principal,'directory:manage'))return data.directory;
   const classes=data.directory.classes.filter(c=>classAccess(data.directory,principal,c.id,day).read);
   const ids=new Set(classes.map(c=>c.id));
-  return {users:principal.user?[principal.user]:[],classes,memberships:data.directory.memberships.filter(m=>m.userId===principal.id&&ids.has(m.classId)&&m.status==='active')};
+  return {subjects:(data.directory.subjects??[]).filter(s=>classes.some(c=>(c.subjectIds??[]).includes(s.id))),templates:[],users:principal.user?[principal.user]:[],classes:classes.map(({assignments,...c})=>c),memberships:data.directory.memberships.filter(m=>m.userId===principal.id&&ids.has(m.classId)&&m.status==='active')};
 }
 export async function directoryAction(request,path,method,row,principal,save,readJson) {
   ensure(can(principal,'directory:manage'),'Nur die Administration darf Benutzer, Klassen und Mitgliedschaften verwalten.',403);
   const d=row.data.directory;
+  if(/^\/api\/(subjects|templates)(\/|$)/.test(path)){if(await curriculumAction(path,method,await readJson(request),d)){await save(row,"Fachkatalog aktualisiert");return {ok:true};}}
   const userMatch=path.match(/^\/api\/users\/([a-f0-9-]{36})$/),classMatch=path.match(/^\/api\/classes\/([a-f0-9-]{36})$/),memberMatch=path.match(/^\/api\/memberships\/([a-f0-9-]{36})$/);
   if((path==='/api/users'&&method==='POST')||(userMatch&&method==='PUT')) {
     const input=userInput(await readJson(request)),old=userMatch?d.users.find(u=>u.id===userMatch[1]):null;
@@ -95,11 +101,14 @@ export async function directoryAction(request,path,method,row,principal,save,rea
     await save(row,`Benutzerkonto ${old?'aktualisiert':'vorbereitet'}`);return {ok:true};
   }
   if((path==='/api/classes'&&method==='POST')||(classMatch&&method==='PUT')) {
-    const input=classInput(await readJson(request)),old=classMatch?d.classes.find(c=>c.id===classMatch[1]):null;
+    const payload=await readJson(request),old=classMatch?d.classes.find(c=>c.id===classMatch[1]):null;
+    const input=classInput(old?{...old,...payload}:payload);
+    const template=d.templates.find(t=>t.occupation===input.occupation&&t.schoolYear===input.schoolYear&&t.site===input.site);input.subjectIds=payload.subjectIds??old?.subjectIds??template?.subjectIds??[];input.assignments=payload.assignments??old?.assignments??[];
     ensure(!classMatch||old,'Klasse nicht gefunden.',404);
     ensure(!d.classes.some(c=>c.id!==old?.id&&c.name.toLowerCase()===input.name.toLowerCase()&&c.course.toLowerCase()===input.course.toLowerCase()&&c.site===input.site&&c.startDate===input.startDate),'Diese Klasse ist bereits angelegt.',409);
     ensure(d.classes.length<200||old,'Maximal 200 Lehrgangsklassen.');
     if(old)Object.assign(old,input,{updatedAt:stamp()});else d.classes.push({...input,id:crypto.randomUUID(),createdAt:stamp(),updatedAt:stamp()});
+    validateCurriculum(d);
     await save(row,`Lehrgangsklasse ${old?'aktualisiert':'angelegt'}`);return {ok:true};
   }
   if(path==='/api/memberships'&&method==='POST') {
@@ -114,7 +123,7 @@ export async function directoryAction(request,path,method,row,principal,save,rea
     await save(row,'Klassenmitgliedschaft angelegt');return {ok:true};
   }
   if(memberMatch&&method==='DELETE') {
-    const m=d.memberships.find(m=>m.id===memberMatch[1]);ensure(m,'Mitgliedschaft nicht gefunden.',404);m.status='removed';m.removedAt=stamp();await save(row,'Klassenmitgliedschaft beendet');return {ok:true};
+    const m=d.memberships.find(m=>m.id===memberMatch[1]);ensure(m,'Mitgliedschaft nicht gefunden.',404);m.status='removed';m.removedAt=stamp();const k=d.classes.find(c=>c.id===m.classId);if(k)k.assignments=(k.assignments??[]).filter(a=>a.userId!==m.userId);await save(row,'Klassenmitgliedschaft beendet');return {ok:true};
   }
   if(path==='/api/permissions/check'&&method==='POST') {
     const p=await readJson(request),u=d.users.find(u=>u.id===p.userId);ensure(u,'Benutzer nicht gefunden.',404);
@@ -132,8 +141,8 @@ export function validateDirectory(input,{resetActivation=false}={}) {
   const ids=new Set(),emails=new Set();
   const entity=(v)=>{ensure(uuid(v.id)&&!ids.has(v.id),'Ungültige oder doppelte Verzeichniskennung.');ids.add(v.id);ensure(typeof v.createdAt==='string'&&!Number.isNaN(Date.parse(v.createdAt)),'Ungültiges Erstellungsdatum.');};
   const users=input.users.map(u=>{entity(u);ensure(['pending','active','disabled'].includes(u.status),'Ungültiger Kontostatus.');const v=userInput({...u,status:u.status==='active'?'pending':u.status});ensure(!emails.has(v.email),'Doppelte E-Mail-Adresse im Backup.');emails.add(v.email);return {...v,id:u.id,status:resetActivation&&u.status==='active'?'pending':u.status,createdAt:u.createdAt,updatedAt:typeof u.updatedAt==='string'?u.updatedAt:u.createdAt};});
-  const classes=input.classes.map(c=>{entity(c);return {...classInput(c),id:c.id,createdAt:c.createdAt,updatedAt:typeof c.updatedAt==='string'?c.updatedAt:c.createdAt};});
+  const classes=input.classes.map(c=>{entity(c);return {...classInput(c),subjectIds:c.subjectIds??[],assignments:c.assignments??[],id:c.id,createdAt:c.createdAt,updatedAt:typeof c.updatedAt==='string'?c.updatedAt:c.createdAt};});
   const pairs=new Set();
   const memberships=input.memberships.map(m=>{entity(m);const u=users.find(u=>u.id===m.userId),c=classes.find(c=>c.id===m.classId);ensure(u&&c&&['teacher','student'].includes(m.role)&&u.roles.includes(m.role)&&['active','removed'].includes(m.status),'Ungültiger Verweis einer Mitgliedschaft.');if(m.status==='active'){const pair=`${m.userId}:${m.classId}`;ensure(!pairs.has(pair),'Doppelte aktive Mitgliedschaft.');pairs.add(pair);}return {id:m.id,userId:m.userId,classId:m.classId,role:m.role,status:m.status,createdAt:m.createdAt,...(m.removedAt?{removedAt:m.removedAt}:{})};});
-  return {users,classes,memberships};
+  return validateCurriculum({...input,users,classes,memberships});
 }
