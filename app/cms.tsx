@@ -57,7 +57,7 @@ export default function CMS({ displayName,mode,workshop=false }:{ displayName:st
   }
   async function restore(file?:File) {
     if (!file) return;
-    if (!confirm("Diese Sicherung ersetzt Beiträge und Medien sowie bei Formatversion 2 oder 3 auch Konten, Klassen und Mitgliedschaften. Vorher eine Sicherung herunterladen. Jetzt ersetzen?")) { if (backupInput.current) backupInput.current.value=""; return; }
+    if (!confirm("Diese Sicherung ersetzt Beiträge, Medien und IBA-Daten sowie ab Formatversion 2 auch Konten, Klassen und Mitgliedschaften. Bei älteren Sicherungen werden die aktuellen IBA-Daten entfernt. Vorher eine Sicherung herunterladen. Jetzt ersetzen?")) { if (backupInput.current) backupInput.current.value=""; return; }
     await task(async () => { if (file.size > 20*1024*1024) throw new Error("Sicherung darf maximal 20 MB groß sein."); const r = await request("/api/restore",{ method:"POST",headers:{ "content-type":"application/json" },body:file }); const b = await r.json() as State & { error?:string }; if (!r.ok) throw new Error(b.error); },"Sicherung geprüft und wiederhergestellt.");
     if (backupInput.current) backupInput.current.value="";
   }
