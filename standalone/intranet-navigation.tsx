@@ -14,7 +14,7 @@ const sections = [
 export default function IntranetNavigation({onHome,onTeaching,onHead,hasHead,onNavigate,ibaAllowed,workshop}:{onHome:()=>void;onTeaching:()=>void;onHead:()=>void;hasHead:boolean;onNavigate:(open:boolean)=>void;ibaAllowed:boolean;workshop:boolean}) {
  const [site,setSite]=useState<'voecklabruck'|'gmunden'>('voecklabruck');
  const [section,setSection]=useState('home'),[item,setItem]=useState('');
- function openSection(id:string){setSection(id);setItem('');onNavigate(true);}
+ function openSection(id:string){setSection(id);setItem(id==='iba'?'Übersicht':'');onNavigate(true);}
  function choose(label:string){
    if(label==='Meine Klassen'){setSection('home');onNavigate(false);onTeaching();return;}
    if(label==='Klassenvorstand'&&hasHead){setSection('home');onNavigate(false);onHead();return;}
