@@ -1,5 +1,5 @@
 import {targets,personalPrincipal} from './targeting.mjs';
-import {readExport} from './iba-csv.mjs';
+import {readExport,reconcileIbaRecords} from './iba-csv.mjs';
 import {CurriculumError} from './curriculum.mjs';
 import { normalizeDirectory, newDirectory, resolvePrincipal, capabilities, can, classAccess, directoryProjection, directoryAction, validateDirectory, visiblePost, DirectoryError } from './directory.mjs';
 export const MAX_FILE = 2 * 1024 * 1024;
@@ -79,14 +79,18 @@ export async function handleApi(request, store, actor) {
     if(path==='/api/directory'&&method==='GET')return json({directory:directoryProjection(initial.data,principal),capabilities:capabilities(initial.data,principal)});
     if(path==='/api/iba') {
       check(can(principal,'directory:manage'),'Nur die Administration darf IBA-Daten einsehen und verwalten.',403);
-      if(method==='GET')return json({snapshots:initial.data.iba??[]});
+      if(method==='GET')return json({snapshots:initial.data.iba??[],revision:initial.revision});
       if(method==='POST'){
         const p=await requestJson(request);check(typeof p.csv==='string'&&p.csv.length<=1000000,'CSV-Datei fehlt oder ist zu groß.');
         let parsed;try{parsed=readExport(p.csv,p.location);}catch(e){throw new CmsError(e instanceof Error?e.message:'CSV ungültig.');}
         check(parsed.records.length<=2000&&parsed.records.every(r=>Object.values(r).every(v=>typeof v==='string'&&v.length<=10000)),'Zu viele Einträge oder zu lange Felder.');
+        check(p.revision===initial.revision,'Der Datenstand wurde geändert. Bitte die Vorschau erneut öffnen.',409);
+        check(p.decisions && typeof p.decisions==='object' && !Array.isArray(p.decisions),'Bitte alle Zuordnungen prüfen.');
+        const merged=reconcileIbaRecords((initial.data.iba??[]).find(s=>s.location===p.location)?.records??[],parsed.records,p.decisions);
+        check(!merged.unresolved,'Bitte alle unklaren Einträge zuordnen oder überspringen.',409);
         const snapshots=(initial.data.iba??[]).filter(s=>s.location!==p.location);
-        snapshots.push({location:p.location,importedAt:now(),records:parsed.records});initial.data.iba=snapshots;
-        await commit(store,initial,principal.id,'IBA-Daten für einen Standort importiert');return json({ok:true,count:parsed.records.length,optionalMissing:parsed.optionalMissing});
+        snapshots.push({location:p.location,importedAt:now(),records:merged.records});initial.data.iba=snapshots;
+        await commit(store,initial,principal.id,'IBA-Daten für einen Standort abgeglichen');return json({ok:true,count:parsed.records.length,added:merged.added,matched:merged.matched,skipped:merged.skipped});
       }
       throw new CmsError('Methode nicht erlaubt.',405);
     }

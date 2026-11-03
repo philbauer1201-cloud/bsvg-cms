@@ -58,6 +58,22 @@ export async function decodeFile(file) {
   const encoding = bytes[0] === 0xff && bytes[1] === 0xfe ? 'utf-16le' : bytes[0] === 0xfe && bytes[1] === 0xff ? 'utf-16be' : 'utf-8';
   try { return new TextDecoder(encoding, { fatal:true }).decode(buffer); } catch { return new TextDecoder('windows-1252').decode(buffer); }
 }
+export function reconcileIbaRecords(existing, incoming, decisions = {}) {
+ const fields=['name','schoolYear','course','class','status','caretaker','contact','meeting','notes','changes','company','assistance','boarding','start','end'];
+ const same=(a,b)=>fields.every(k=>String(a[k]??'').trim()===String(b[k]??'').trim());
+ const out=existing.map(r=>({...r})), items=[], used=new Set();let added=0, matched=0, skipped=0;
+ for(let i=0;i<incoming.length;i++){
+  const row=incoming[i], exact=out.findIndex(r=>same(r,row)), choice=decisions[i];
+  if(exact>=0){items.push({index:i,kind:'duplicate',name:row.name});skipped++;continue;}
+  if(choice==='skip'){items.push({index:i,kind:'skipped',name:row.name});skipped++;continue;}
+  if(choice==='new'){out.push({...row,id:crypto.randomUUID()});items.push({index:i,kind:'new',name:row.name});added++;continue;}
+  if(typeof choice==='number'&&Number.isInteger(choice)&&choice>=0&&choice<existing.length&&!used.has(choice)){
+   const old=out[choice];for(const key of ['name','schoolYear','course','class','status']) old[key]=row[key];used.add(choice);items.push({index:i,kind:'matched',name:row.name});matched++;continue;
+  }
+  items.push({index:i,kind:'review',name:row.name});
+ }
+ return {records:out,items,added,matched,skipped,unresolved:items.filter(v=>v.kind==='review').length};
+}
 export function filterRecords(records, values) {
   const query = String(values.search || '').trim().toLocaleLowerCase('de-AT');
   return records.filter(r => ['location','schoolYear','course','class','status'].every(k => !values[k] || r[k] === values[k]) && (!query || r.name.toLocaleLowerCase('de-AT').includes(query)));
