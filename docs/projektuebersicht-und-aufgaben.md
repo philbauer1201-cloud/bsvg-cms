@@ -12,17 +12,17 @@ Arbeitsstand: 03.11.2026. Anforderungen aus dem bisherigen Gespräch; offene Pun
 
 ## IBA – nächstes Funktionspaket
 
-Vorhanden: CSV-Datenstand für Vöcklabruck mit Filtern und Detailansicht; Zugriff derzeit auf die Administration begrenzt. Das Gesprächsformular ist eine nicht speichernde Vorschau. PDF-Anlagen und personalisierte IBA-Rollen sind noch nicht umgesetzt.
+Vorhanden: CSV-Import mit Abgleich, Filter und Detailansicht sowie Anlage neuer Datensätze für Berechtigte; Zugriff derzeit auf die Administration begrenzt. PDF-Anlagen und gesonderte IBA-Rollen sind noch nicht umgesetzt. Lokale und gehostete Datenbestände sind getrennt.
 
 - [ ] Berechtigte Personen können neue Schüler*innen anlegen sowie bestehende Datensätze öffnen, bearbeiten, speichern und erneut öffnen. Erstellungs- und Änderungszeit sowie verantwortliche Person nachvollziehbar halten; Lese- und Bearbeitungsrechte getrennt prüfen.
 - [ ] Übersicht und Details aufgeräumt nach Person und Ausbildung, Gespräch und Betreuung, Besonderheiten und Änderungen sowie Anlagen gliedern. Leere Felder erkennbar darstellen.
 - [ ] IBA-Status als pflegbare Auswahlliste: vorhandene Statuswerte aus importierten Datensätzen berücksichtigen; berechtigte Personen können fehlende Werte manuell ergänzen. Keine vollständige Liste erfinden. Freitext und Varianten kontrollieren, bestehende Werte bei Änderungen erhalten.
 - [ ] Schuljahr, Klasse und Lehrgang aus gepflegten Daten anbieten und bei Bedarf durch berechtigte Personen ergänzen. „LG“ im Import als „Lehrgang“ verstehen; vorhandene Werte wie „LG 2“ erhalten und einheitlich anzeigen, ohne sie doppelt zu präfixieren.
 - [ ] A4-Druckansicht eines einzelnen Datensatzes für die externe Ordnerablage: lesbare Gliederung, Druckdatum, sinnvolle Seitenumbrüche und optionales Speichern als PDF über den Druckdialog. Nur berechtigte Inhalte ausgeben.
-- [ ] Gesprächsprotokolle als PDF einem Eintrag zuordnen, geschützt speichern und herunterladen. Dateityp und Größe prüfen; Dateien in Sicherung und Wiederherstellung aufnehmen.
+- [ ] **PDF-Upload für IBA-Gesprächsprotokolle:** bei der Anlage und bei bestehenden Schülerdatensätzen PDFs zuordnen, geschützt speichern und für berechtigte Lehrkräfte lesbar machen. Koordinator:innen dürfen hochladen; Dateityp und Größe prüfen. Anlagen müssen beim Import erhalten bleiben und in Sicherung, Wiederherstellung und Umzug enthalten sein. Berechtigungen, Download und Wiederherstellung mit Testdaten prüfen.
 - [ ] CSV-Import: Vorschau und Prüfung vor Übernahme; Konflikte mit manuell gepflegten Daten sichtbar machen. Standortweise Ersetzung darf Änderungen und Anlagen nicht stillschweigend verlieren. Eindeutige stabile IDs und Umgang mit fehlenden oder doppelten IDs festlegen.
 - [ ] Bestehende Betreuer*innen aus dem Datenbestand durchsuchbar anbieten; zusätzliche Kontakte durch berechtigte Personen pflegen. Externes Verzeichnis als Quelle verlinken; Aktualität und Übernahme separat prüfen.
-- [ ] Ende-zu-Ende-Prüfung: Import → bestehenden Eintrag bearbeiten → speichern → erneut öffnen → A4 drucken/PDF speichern → sichern und wiederherstellen. Nicht berechtigte Konten dürfen weder Einträge noch PDFs lesen oder ändern; parallele Änderungen dürfen nicht unbemerkt überschrieben werden.
+- [ ] Ende-zu-Ende-Prüfung: Import → bestehenden Eintrag bearbeiten → speichern → erneut öffnen → A4 drucken/PDF speichern → sichern und wiederherstellen. Lehrkräfte dürfen freigegebene Daten und PDFs lesen; nur IBA-Koordinator:innen und berechtigte Administration dürfen sie bearbeiten. Schülerkonten und andere Unberechtigte erhalten keinen Zugriff; parallele Änderungen dürfen nicht unbemerkt überschrieben werden.
 
 ## Weitere Funktionspakete
 
