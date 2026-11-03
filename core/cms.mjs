@@ -77,6 +77,23 @@ export async function handleApi(request, store, actor) {
       return json({posts:initial.data.posts.filter(p=>visiblePost(initial.data,reader,p)),files:[],directory:directoryProjection(initial.data,reader),preview:true});
     }
     if(path==='/api/directory'&&method==='GET')return json({directory:directoryProjection(initial.data,principal),capabilities:capabilities(initial.data,principal)});
+    if(path==='/api/iba/record'&&method==='POST') {
+      check(can(principal,'directory:manage'),'Nur berechtigte Personen dürfen IBA-Einträge anlegen.',403);
+      const p=await requestJson(request);
+      check(['Vöcklabruck','Gmunden'].includes(p.location),'Standort ungültig.');
+      const name=text(p.name,200,'Name');
+      const keys=['schoolYear','course','class','status','caretaker','phone','email','meeting','notes','changes','company','start','end'];
+      const values=Object.fromEntries(keys.map(k=>[k,text(p[k]??'',k==='notes'||k==='changes'?10000:500,k,false)]));
+      check(!values.email||/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email),'E-Mail-Adresse ungültig.');
+      const snapshots=initial.data.iba??[];let snapshot=snapshots.find(s=>s.location===p.location);
+      if(!snapshot){snapshot={location:p.location,importedAt:now(),records:[]};snapshots.push(snapshot);}
+      check(snapshot.records.length<2000,'Maximale Anzahl an Einträgen erreicht.');
+      check(!snapshot.records.some(r=>r.name.trim().toLocaleLowerCase('de-AT')===name.toLocaleLowerCase('de-AT')),'Dieser Name ist bereits vorhanden. Bitte die bestehende Person prüfen.',409);
+      const contact=[values.phone&&'Tel: '+values.phone,values.email&&'E-Mail: '+values.email].filter(Boolean).join('\n');
+      const {phone,email,...rest}=values;
+      snapshot.records.push({id:uuid(),name,location:p.location,...rest,contact,assistance:p.assistance?'Ja':'Nein',boarding:p.boarding?'Ja':'Nein'});
+      initial.data.iba=snapshots;await commit(store,initial,principal.id,'IBA-Eintrag angelegt');return json({ok:true},201);
+    }
     if(path==='/api/iba') {
       check(can(principal,'directory:manage'),'Nur die Administration darf IBA-Daten einsehen und verwalten.',403);
       if(method==='GET')return json({snapshots:initial.data.iba??[],revision:initial.revision});
