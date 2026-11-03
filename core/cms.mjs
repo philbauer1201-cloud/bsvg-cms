@@ -1,4 +1,5 @@
 import {targets,personalPrincipal} from './targeting.mjs';
+import {readExport} from './iba-csv.mjs';
 import {CurriculumError} from './curriculum.mjs';
 import { normalizeDirectory, newDirectory, resolvePrincipal, capabilities, can, classAccess, directoryProjection, directoryAction, validateDirectory, visiblePost, DirectoryError } from './directory.mjs';
 export const MAX_FILE = 2 * 1024 * 1024;
@@ -76,6 +77,19 @@ export async function handleApi(request, store, actor) {
       return json({posts:initial.data.posts.filter(p=>visiblePost(initial.data,reader,p)),files:[],directory:directoryProjection(initial.data,reader),preview:true});
     }
     if(path==='/api/directory'&&method==='GET')return json({directory:directoryProjection(initial.data,principal),capabilities:capabilities(initial.data,principal)});
+    if(path==='/api/iba') {
+      check(can(principal,'directory:manage'),'Nur die Administration darf IBA-Daten einsehen und verwalten.',403);
+      if(method==='GET')return json({snapshots:initial.data.iba??[]});
+      if(method==='POST'){
+        const p=await requestJson(request);check(typeof p.csv==='string'&&p.csv.length<=1000000,'CSV-Datei fehlt oder ist zu groß.');
+        let parsed;try{parsed=readExport(p.csv,p.location);}catch(e){throw new CmsError(e instanceof Error?e.message:'CSV ungültig.');}
+        check(parsed.records.length<=2000&&parsed.records.every(r=>Object.values(r).every(v=>typeof v==='string'&&v.length<=10000)),'Zu viele Einträge oder zu lange Felder.');
+        const snapshots=(initial.data.iba??[]).filter(s=>s.location!==p.location);
+        snapshots.push({location:p.location,importedAt:now(),records:parsed.records});initial.data.iba=snapshots;
+        await commit(store,initial,principal.id,'IBA-Daten für einen Standort importiert');return json({ok:true,count:parsed.records.length,optionalMissing:parsed.optionalMissing});
+      }
+      throw new CmsError('Methode nicht erlaubt.',405);
+    }
     const classDetail=path.match(/^\/api\/classes\/([a-f0-9-]{36})$/);
     if(classDetail&&method==='GET') {
       const access=classAccess(initial.data.directory,principal,classDetail[1]);check(access.read,'Kein Zugriff auf diese Lehrgangsklasse.',403);
@@ -98,7 +112,8 @@ export async function handleApi(request, store, actor) {
     if(!['GET','HEAD'].includes(method))check(can(principal,'content:manage'),'Keine Berechtigung zum Verändern von Inhalten.',403);
     if (path === '/api/state' && method === 'GET') {
       const row=initial,reader=url.searchParams.get("personal")==="1"?personalPrincipal(principal):principal;
-      return json({ ...row.data,posts:row.data.posts.filter(p=>visiblePost(row.data,reader,p)),files:row.data.files.filter(f=>can(principal,'content:manage')||can(principal,'staff:read')).map(({key,...f})=>f),activity:can(principal,'directory:manage')?row.data.activity:[],directory:directoryProjection(row.data,reader),capabilities:capabilities(row.data,principal),revision:row.revision });
+      const {iba,...safeData}=row.data;
+      return json({ ...safeData,posts:row.data.posts.filter(p=>visiblePost(row.data,reader,p)),files:row.data.files.filter(f=>can(principal,'content:manage')||can(principal,'staff:read')).map(({key,...f})=>f),activity:can(principal,'directory:manage')?row.data.activity:[],directory:directoryProjection(row.data,reader),capabilities:capabilities(row.data,principal),revision:row.revision });
     }
     if (path === '/api/posts' && method === 'POST') {
       const input = postInput(await requestJson(request)), row = initial; check(row.data.posts.length < 500, 'Maximal 500 Beiträge im Grundgerüst.');
@@ -140,10 +155,11 @@ export async function handleApi(request, store, actor) {
       const row = initial, files = [];
       for (const { key,...f } of row.data.files) { const bytes = await store.getFile(key); check(bytes,`Datei „${f.name}“ fehlt.`,409); check(await sha(bytes) === f.sha256,`Prüfsumme von „${f.name}“ stimmt nicht.`,409); files.push({ ...f, base64: base64(bytes) }); }
       check((await read(store)).revision === row.revision,'Daten wurden während des Exports geändert. Bitte erneut exportieren.',409);
-      return json({ format:'bsvg-cms',version:3,exportedAt:now(),posts:row.data.posts,activity:row.data.activity,files,directory:row.data.directory },200,{ 'content-disposition':`attachment; filename="bsvg-backup-${now().slice(0,10)}.json"` });
+      return json({ format:'bsvg-cms',version:row.data.iba?.length?4:3,exportedAt:now(),posts:row.data.posts,activity:row.data.activity,files,directory:row.data.directory,...(row.data.iba?.length?{iba:row.data.iba}:{}) },200,{ 'content-disposition':`attachment; filename="bsvg-backup-${now().slice(0,10)}.json"` });
     }
     if (path === '/api/restore' && method === 'POST') {
-      const b = await requestJson(request); check(b?.format === 'bsvg-cms' && [1,2,3].includes(b.version),'Unbekanntes Backupformat oder nicht unterstützte Version.');
+      const b = await requestJson(request); check(b?.format === 'bsvg-cms' && [1,2,3,4].includes(b.version),'Unbekanntes Backupformat oder nicht unterstützte Version.');
+      const iba=b.version===4?b.iba:[];check(Array.isArray(iba)&&iba.length<=2&&iba.every(s=>['Vöcklabruck','Gmunden'].includes(s.location)&&validDate(s.importedAt)&&Array.isArray(s.records)&&s.records.length<=2000&&s.records.every(r=>r&&typeof r==='object'&&Object.values(r).every(v=>typeof v==='string'&&v.length<=10000))),'Ungültige IBA-Daten in der Sicherung.');check(new Set(iba.map(s=>s.location)).size===iba.length,'Doppelte IBA-Standorte in der Sicherung.');
       const directory=b.version>=2?validateDirectory(b.directory,{resetActivation:true}):initial.data.directory;
       check(Array.isArray(b.posts) && b.posts.length <= 500 && Array.isArray(b.files) && b.files.length <= 40,'Ungültige Einträge im Backup.');
       const ids = new Set();
@@ -157,7 +173,7 @@ export async function handleApi(request, store, actor) {
         files.push({ meta: { id:f.id,key:uuid(),name,type:f.type,size:bytes.length,sha256:f.sha256,createdAt:f.createdAt },bytes });
       }
       const row = initial, uploaded = [];
-      try { for (const f of files) { await store.putFile(f.meta.key,f.bytes,f.meta.type); uploaded.push(f.meta.key); } row.data = { posts,files:files.map(f => f.meta),activity:[],directory }; await commit(store,row,principal.id,`${posts.length} Beiträge und ${files.length} Dateien wiederhergestellt`); }
+      try { for (const f of files) { await store.putFile(f.meta.key,f.bytes,f.meta.type); uploaded.push(f.meta.key); } row.data = { posts,files:files.map(f => f.meta),activity:[],directory,iba }; await commit(store,row,principal.id,`${posts.length} Beiträge und ${files.length} Dateien wiederhergestellt`); }
       catch (e) { for (const key of uploaded) await store.deleteFile(key); throw e; }
       return json({ ok:true,posts:posts.length,files:files.length });
     }
